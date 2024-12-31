@@ -40,6 +40,22 @@ def extract_video_id(url):
             return url.split('v=')[1].split('&')[0]
     return url
 
+def parse_duration(duration):
+    """ISO 8601 süre formatını saniyeye çevirir"""
+    duration = duration.replace('PT', '')
+    hours = minutes = seconds = 0
+    
+    if 'H' in duration:
+        hours = int(duration.split('H')[0])
+        duration = duration.split('H')[1]
+    if 'M' in duration:
+        minutes = int(duration.split('M')[0])
+        duration = duration.split('M')[1]
+    if 'S' in duration:
+        seconds = int(duration.split('S')[0])
+    
+    return hours * 3600 + minutes * 60 + seconds
+
 # Video bilgilerini YouTube API ile al
 def get_video_info_from_api(url):
     try:
@@ -60,11 +76,8 @@ def get_video_info_from_api(url):
         content_details = video['contentDetails']
 
         # Video süresini saniyeye çevir
-        duration = content_details['duration']
-        duration_sec = sum(x * int(t) for x, t in zip([3600, 60, 1], 
-            str(duration).replace('PT','').replace('H',':').replace('M',':').replace('S','').split(':')))
+        duration_sec = parse_duration(content_details['duration'])
 
-        formats = []
         # Video formatları
         video_formats = [
             {'format_id': 'hd1080', 'quality': '1080p', 'height': 1080},
