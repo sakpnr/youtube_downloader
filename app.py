@@ -22,7 +22,16 @@ def get_video_info(url):
     try:
         ydl_opts = {
             'quiet': True,
-            'no_warnings': True
+            'no_warnings': True,
+            'extract_flat': True,  # Sadece video bilgilerini al
+            'no_playlist': True,   # Oynatma listelerini devre dışı bırak
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Sec-Fetch-Mode': 'navigate'
+            }
         }
         
         # Yerel modda Chrome çerezlerini kullan
@@ -240,7 +249,15 @@ def download_video():
             'concurrent_fragments': 3,
             'retries': 10,
             'fragment_retries': 10,
-            'buffersize': 1024 * 1024
+            'buffersize': 1024 * 1024,
+            'no_playlist': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Sec-Fetch-Mode': 'navigate'
+            }
         }
         
         # Yerel modda Chrome çerezlerini kullan
