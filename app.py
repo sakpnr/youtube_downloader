@@ -18,7 +18,8 @@ socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
-        'no_warnings': True
+        'no_warnings': True,
+        'cookies_from_browser': 'chrome'  # Chrome tarayıcısından çerezleri kullan
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(url, download=False)
@@ -227,6 +228,7 @@ def download_video():
             'retries': 10,  # Hata durumunda yeniden deneme sayısı
             'fragment_retries': 10,
             'buffersize': 1024 * 1024,  # Buffer boyutunu artır
+            'cookies_from_browser': 'chrome'  # Chrome tarayıcısından çerezleri kullan
         }
         
         if download_type == 'audio':
