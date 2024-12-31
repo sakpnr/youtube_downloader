@@ -5,348 +5,252 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Video İndirici</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         body {
             background-color: #f8f9fa;
-            min-height: 100vh;
         }
         .container {
             max-width: 800px;
-            padding: 2rem;
+            margin-top: 50px;
         }
         .card {
+            border: none;
             border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
-        .btn-primary {
+        .card-header {
             background-color: #ff0000;
-            border-color: #ff0000;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
         }
-        .btn-primary:hover {
+        .progress {
+            height: 25px;
+            border-radius: 12px;
+        }
+        #downloadBtn {
+            background-color: #ff0000;
+            border: none;
+        }
+        #downloadBtn:hover {
             background-color: #cc0000;
-            border-color: #cc0000;
         }
-        .format-select {
+        .format-card {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .format-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .format-card.selected {
+            border: 2px solid #ff0000;
+        }
+        #videoInfo {
             display: none;
         }
-        .video-info {
-            display: none;
-            margin-top: 1rem;
-        }
-        .loading {
-            display: none;
-        }
-        
-        /* Yükleme Animasyonu */
-        .download-animation {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .download-progress {
-            width: 100%;
-            height: 8px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-            margin: 10px 0;
-        }
-        .progress-bar {
-            position: absolute;
-            width: 0%;
-            height: 100%;
-            background-color: #ff0000;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-            background-image: linear-gradient(45deg, 
-                rgba(255, 255, 255, 0.15) 25%, 
-                transparent 25%, 
-                transparent 50%, 
-                rgba(255, 255, 255, 0.15) 50%, 
-                rgba(255, 255, 255, 0.15) 75%, 
-                transparent 75%, 
-                transparent);
-            background-size: 1rem 1rem;
-        }
-        .download-icon {
-            font-size: 48px;
-            color: #ff0000;
-            margin-bottom: 10px;
-            animation: bounce 1s ease infinite;
-        }
-        @keyframes bounce {
-            0%, 100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-10px);
-            }
-        }
-        
-        @keyframes progress-bar-stripes {
-            from {
-                background-position: 1rem 0;
-            }
-            to {
-                background-position: 0 0;
-            }
+        .thumbnail {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
         }
     </style>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
 </head>
 <body>
     <div class="container">
-        <div class="card mt-5">
-            <div class="card-body">
-                <h1 class="text-center mb-4">YouTube Video İndirici</h1>
-                <div class="mb-3">
-                    <input type="text" id="videoUrl" class="form-control" placeholder="YouTube video URL'sini yapıştırın">
-                </div>
-                <div class="mb-3">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="downloadType" id="videoOption" value="video" checked>
-                        <label class="form-check-label" for="videoOption">Video İndir</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="downloadType" id="audioOption" value="audio">
-                        <label class="form-check-label" for="audioOption">MP3 İndir</label>
+        <div class="card">
+            <div class="card-header text-center py-3">
+                <h2 class="mb-0">YouTube Video İndirici</h2>
+            </div>
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <label for="url" class="form-label">Video URL'si</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="url" placeholder="https://www.youtube.com/watch?v=...">
+                        <button class="btn btn-outline-secondary" type="button" id="checkUrl">Kontrol Et</button>
                     </div>
                 </div>
-                <div class="text-center">
-                    <button onclick="getFormats()" class="btn btn-primary">Kaliteleri Göster</button>
-                </div>
-                
-                <!-- Video Bilgileri -->
-                <div id="videoInfo" class="video-info">
+
+                <div id="videoInfo" class="mb-4">
                     <div class="row">
                         <div class="col-md-4">
-                            <img id="videoThumbnail" class="img-fluid rounded mb-3" alt="Video Thumbnail">
+                            <img id="thumbnail" class="thumbnail mb-3" src="" alt="Video thumbnail">
                         </div>
                         <div class="col-md-8">
-                            <h4 id="videoTitle" class="mb-2"></h4>
-                            <p id="videoDuration" class="text-muted mb-2"></p>
-                            <p id="videoDescription" class="small text-muted mb-3" style="max-height: 100px; overflow-y: auto;"></p>
+                            <h4 id="title" class="mb-2"></h4>
+                            <p id="duration" class="text-muted"></p>
+                            <div class="mb-3">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="downloadType" id="videoType" value="video" checked>
+                                    <label class="form-check-label" for="videoType">Video</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="downloadType" id="audioType" value="audio">
+                                    <label class="form-check-label" for="audioType">Ses (MP3)</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <!-- Kalite Seçimi -->
-                    <div class="format-select mb-3">
-                        <label for="formatSelect" class="form-label">Video Kalitesi:</label>
-                        <select id="formatSelect" class="form-select">
-                        </select>
-                    </div>
-                    
-                    <!-- İndirme Konumu Seçimi -->
-                    <div class="mb-3">
-                        <label for="downloadPath" class="form-label">İndirme Konumu:</label>
+
+                    <div id="formatList" class="row g-3 mt-2"></div>
+
+                    <div class="mt-4">
+                        <label for="downloadPath" class="form-label">İndirme Konumu</label>
                         <div class="input-group">
-                            <input type="text" id="downloadPath" class="form-control" readonly placeholder="İndirme konumu seçin">
-                            <button class="btn btn-outline-secondary" type="button" onclick="selectDownloadPath()">Konum Seç</button>
+                            <input type="text" class="form-control" id="downloadPath" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="selectFolder">Konum Seç</button>
                         </div>
                     </div>
-                    
-                    <div class="text-center">
-                        <button onclick="downloadVideo()" class="btn btn-success">İndirmeyi Başlat</button>
+
+                    <div class="mt-4">
+                        <button id="downloadBtn" class="btn btn-primary w-100" disabled>İndir</button>
+                    </div>
+
+                    <div class="mt-4" id="progressContainer" style="display: none;">
+                        <div class="progress">
+                            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div id="progressText" class="text-center mt-2"></div>
                     </div>
                 </div>
-                
-                <!-- Yükleniyor -->
-                <div id="loading" class="loading text-center mt-3">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Yükleniyor...</span>
-                    </div>
-                    <p class="mt-2">İşlem devam ediyor...</p>
-                </div>
-                
-                <!-- İndirme Animasyonu -->
-                <div id="downloadAnimation" class="download-animation">
-                    <div class="download-icon">
-                        <i class="bi bi-cloud-arrow-down"></i>
-                    </div>
-                    <div class="download-progress">
-                        <div class="progress-bar"></div>
-                    </div>
-                    <p class="mt-3" id="downloadStatus">İndiriliyor...</p>
-                </div>
-                
-                <div id="result" class="mt-3"></div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
     <script>
         const socket = io();
         let selectedFormat = null;
-        
+
         socket.on('download_progress', function(data) {
-            const progressBar = document.querySelector('.progress-bar');
-            const downloadStatus = document.getElementById('downloadStatus');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressContainer.style.display = 'block';
             
             if (data.percentage >= 0) {
-                const percentage = data.percentage;
-                progressBar.style.width = percentage + '%';
-                downloadStatus.textContent = 'İndiriliyor...';
+                progressBar.style.width = data.percentage + '%';
+                progressBar.setAttribute('aria-valuenow', data.percentage);
+                progressText.textContent = `İndiriliyor: ${data.percentage.toFixed(1)}%`;
             } else {
-                // Toplam boyut bilinmiyorsa
-                progressBar.style.width = '100%';
-                progressBar.style.animation = 'progress-bar-stripes 1s linear infinite';
-                downloadStatus.textContent = 'İndiriliyor...';
+                progressText.textContent = `İndiriliyor: ${data.downloaded.toFixed(1)} MB`;
             }
         });
-        
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-        }
-        
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-        }
-        
-        function showDownloadAnimation() {
-            const downloadAnimation = document.getElementById('downloadAnimation');
-            const progressBar = document.querySelector('.progress-bar');
-            
-            downloadAnimation.style.display = 'block';
-            progressBar.style.width = '0%';
-            progressBar.style.backgroundColor = '#ff0000'; // Kırmızı renk
-            document.getElementById('downloadStatus').textContent = 'İndiriliyor...';
-        }
-        
-        function hideDownloadAnimation() {
-            document.getElementById('downloadAnimation').style.display = 'none';
-        }
-        
-        function formatDuration(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const remainingSeconds = seconds % 60;
-            
-            let result = '';
-            if (hours > 0) {
-                result += `${hours}:`;
-            }
-            result += `${minutes.toString().padStart(2, '0')}:`;
-            result += remainingSeconds.toString().padStart(2, '0');
-            return result;
-        }
 
-        async function getFormats() {
-            const videoUrl = document.getElementById('videoUrl').value;
+        document.getElementById('checkUrl').addEventListener('click', async function() {
+            const url = document.getElementById('url').value;
             const downloadType = document.querySelector('input[name="downloadType"]:checked').value;
-            const resultDiv = document.getElementById('result');
-            const videoInfo = document.getElementById('videoInfo');
-            const formatSelect = document.getElementById('formatSelect');
             
-            if (!videoUrl) {
-                resultDiv.innerHTML = '<div class="alert alert-danger">Lütfen bir video URL\'si girin.</div>';
+            if (!url) {
+                alert('Lütfen bir URL girin!');
                 return;
             }
-            
-            showLoading();
-            resultDiv.innerHTML = '';
-            videoInfo.style.display = 'none';
-            hideDownloadAnimation();
-            
+
             try {
                 const response = await fetch('/get-formats', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ 
-                        url: videoUrl,
+                    body: JSON.stringify({
+                        url: url,
                         type: downloadType
                     })
                 });
 
                 const data = await response.json();
-                
+
                 if (data.success) {
-                    // Video bilgilerini göster
-                    document.getElementById('videoTitle').textContent = data.title;
-                    document.getElementById('videoThumbnail').src = data.thumbnail;
-                    document.getElementById('videoDuration').textContent = `Süre: ${formatDuration(data.duration)}`;
-                    document.getElementById('videoDescription').textContent = data.description;
+                    document.getElementById('videoInfo').style.display = 'block';
+                    document.getElementById('title').textContent = data.title;
+                    document.getElementById('thumbnail').src = data.thumbnail;
                     
-                    // Format seçeneklerini temizle
-                    formatSelect.innerHTML = '';
-                    
-                    // Format seçeneklerini ekle
+                    const duration = Math.floor(data.duration / 60) + ':' + 
+                                   String(data.duration % 60).padStart(2, '0');
+                    document.getElementById('duration').textContent = `Süre: ${duration}`;
+
+                    const formatList = document.getElementById('formatList');
+                    formatList.innerHTML = '';
+
                     data.formats.forEach(format => {
-                        const option = document.createElement('option');
-                        option.value = format.format_id;
-                        
-                        // Dosya boyutunu MB'a çevir
-                        const sizeMB = format.filesize ? (format.filesize / (1024 * 1024)).toFixed(1) : 'Bilinmiyor';
-                        const sizeText = sizeMB === 'Bilinmiyor' ? '' : ` (${sizeMB} MB)`;
-                        
-                        if (downloadType === 'audio') {
-                            option.textContent = `${format.quality}kbps${sizeText}`;
-                        } else {
-                            option.textContent = `${format.quality} - ${format.ext}${sizeText}`;
-                        }
-                        formatSelect.appendChild(option);
+                        const col = document.createElement('div');
+                        col.className = 'col-md-4';
+
+                        const card = document.createElement('div');
+                        card.className = 'card format-card h-100';
+                        card.onclick = () => selectFormat(format);
+
+                        const cardBody = document.createElement('div');
+                        cardBody.className = 'card-body';
+
+                        const quality = downloadType === 'audio' ? 
+                            `${format.quality}kbps` : format.quality;
+                        const filesize = format.filesize ? 
+                            `(${(format.filesize / 1024 / 1024).toFixed(1)} MB)` : '';
+
+                        cardBody.innerHTML = `
+                            <h5 class="card-title">${quality}</h5>
+                            <p class="card-text">${filesize}</p>
+                        `;
+
+                        card.appendChild(cardBody);
+                        col.appendChild(card);
+                        formatList.appendChild(col);
                     });
-                    
-                    // Video bilgilerini ve format seçimini göster
-                    videoInfo.style.display = 'block';
-                    document.querySelector('.format-select').style.display = 'block';
-                    
+
+                    document.getElementById('downloadBtn').disabled = true;
                 } else {
-                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    alert(data.message);
                 }
             } catch (error) {
-                resultDiv.innerHTML = '<div class="alert alert-danger">Bir hata oluştu. Lütfen tekrar deneyin.</div>';
-            } finally {
-                hideLoading();
+                alert('Bir hata oluştu: ' + error.message);
             }
+        });
+
+        function selectFormat(format) {
+            selectedFormat = format;
+            
+            document.querySelectorAll('.format-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            event.currentTarget.classList.add('selected');
+            document.getElementById('downloadBtn').disabled = false;
         }
 
-        async function selectDownloadPath() {
+        document.getElementById('selectFolder').addEventListener('click', async function() {
             try {
                 const response = await fetch('/select-folder', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+                    method: 'POST'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     document.getElementById('downloadPath').value = data.path;
                 } else {
-                    document.getElementById('result').innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    alert(data.message);
                 }
             } catch (error) {
-                document.getElementById('result').innerHTML = '<div class="alert alert-danger">Konum seçme işlemi başarısız oldu.</div>';
+                alert('Bir hata oluştu: ' + error.message);
             }
-        }
+        });
 
-        async function downloadVideo() {
-            const videoUrl = document.getElementById('videoUrl').value;
-            const formatId = document.getElementById('formatSelect').value;
+        document.getElementById('downloadBtn').addEventListener('click', async function() {
+            if (!selectedFormat) {
+                alert('Lütfen bir format seçin!');
+                return;
+            }
+
+            const url = document.getElementById('url').value;
             const downloadType = document.querySelector('input[name="downloadType"]:checked').value;
             const downloadPath = document.getElementById('downloadPath').value;
-            const resultDiv = document.getElementById('result');
-            const downloadStatus = document.getElementById('downloadStatus');
-            const progressBar = document.querySelector('.progress-bar');
-            
-            if (!videoUrl) {
-                resultDiv.innerHTML = '<div class="alert alert-danger">Lütfen bir video URL\'si girin.</div>';
-                return;
-            }
-            
+
             if (!downloadPath) {
-                resultDiv.innerHTML = '<div class="alert alert-danger">Lütfen bir indirme konumu seçin.</div>';
+                alert('Lütfen önce indirme konumunu seçin!');
                 return;
             }
-            
-            showDownloadAnimation();
-            resultDiv.innerHTML = '';
-            
+
             try {
                 const response = await fetch('/download', {
                     method: 'POST',
@@ -354,39 +258,31 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        url: videoUrl,
-                        format_id: formatId,
+                        url: url,
+                        format_id: selectedFormat.format_id,
                         type: downloadType,
-                        download_path: downloadPath
+                        download_path: downloadPath || 'downloads'
                     })
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
-                    // İndirme başarılı olduğunda
-                    downloadStatus.textContent = 'İndirme tamamlandı!';
-                    progressBar.style.backgroundColor = '#28a745';
-                    progressBar.style.width = '100%';
-                    progressBar.style.animation = 'none';
-                    
-                    hideDownloadAnimation();
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <h5>${data.title}</h5>
-                            <p>${data.message}</p>
-                            <p>Dosya konumu: ${downloadPath}</p>
-                            <p>Dosya adı: ${data.filename}</p>
-                        </div>`;
+                    alert(data.message);
+                    document.getElementById('progressContainer').style.display = 'none';
                 } else {
-                    hideDownloadAnimation();
-                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    alert(data.message);
                 }
             } catch (error) {
-                hideDownloadAnimation();
-                resultDiv.innerHTML = '<div class="alert alert-danger">Bir hata oluştu. Lütfen tekrar deneyin.</div>';
+                alert('Bir hata oluştu: ' + error.message);
             }
-        }
+        });
+
+        document.querySelectorAll('input[name="downloadType"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('checkUrl').click();
+            });
+        });
     </script>
 </body>
 </html> 
