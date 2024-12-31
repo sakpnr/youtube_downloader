@@ -1,2 +1,8 @@
-# YouTube çerezleri buraya eklenecek
-# Format: domain_name	TRUE/FALSE	path	TRUE/FALSE	expiry_value	name	value 
+# Netscape HTTP Cookie File
+# https://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	PENDING+123
+.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	AFmmF2swRQIhAI6LSdjfgdfg45tdfgdfgdfgdfgdfgIIBgA8
+.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	3RvZBg_ZoU0
+.youtube.com	TRUE	/	TRUE	1735689600	YSC	w1234567890 
