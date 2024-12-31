@@ -18,13 +18,17 @@ socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
-        'no_warnings': True,
-        'cookiesfrombrowser': None  # Tarayıcı çerezlerini devre dışı bırak
+        'no_warnings': True
     }
     
     # Eğer yerel ortamdaysak (Windows) tarayıcı çerezlerini kullan
     if os.name == 'nt':
         ydl_opts['cookies_from_browser'] = 'chrome'
+    else:
+        # Render sunucusunda cookies.txt dosyasını kullan
+        cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
+        if os.path.exists(cookies_path):
+            ydl_opts['cookiefile'] = cookies_path
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(url, download=False)
@@ -232,13 +236,17 @@ def download_video():
             'concurrent_fragments': 3,
             'retries': 10,
             'fragment_retries': 10,
-            'buffersize': 1024 * 1024,
-            'cookiesfrombrowser': None  # Tarayıcı çerezlerini devre dışı bırak
+            'buffersize': 1024 * 1024
         }
         
         # Eğer yerel ortamdaysak (Windows) tarayıcı çerezlerini kullan
         if os.name == 'nt':
             ydl_opts['cookies_from_browser'] = 'chrome'
+        else:
+            # Render sunucusunda cookies.txt dosyasını kullan
+            cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
+            if os.path.exists(cookies_path):
+                ydl_opts['cookiefile'] = cookies_path
         
         if download_type == 'audio':
             ydl_opts.update({

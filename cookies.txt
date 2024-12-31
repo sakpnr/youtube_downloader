@@ -1,0 +1,2 @@
+# YouTube çerezleri buraya eklenecek
+# Format: domain_name	TRUE/FALSE	path	TRUE/FALSE	expiry_value	name	value 
