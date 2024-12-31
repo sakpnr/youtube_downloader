@@ -13,25 +13,28 @@ from functools import lru_cache
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
+# Uygulama modunu belirle
+IS_LOCAL = os.name == 'nt'  # Windows'ta çalışıyorsa yerel moddur
+
 # Video bilgilerini önbelleğe alma
 @lru_cache(maxsize=100)
 def get_video_info(url):
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True
-    }
-    
-    # Eğer yerel ortamdaysak (Windows) tarayıcı çerezlerini kullan
-    if os.name == 'nt':
-        ydl_opts['cookies_from_browser'] = 'chrome'
-    else:
-        # Render sunucusunda cookies.txt dosyasını kullan
-        cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
-        if os.path.exists(cookies_path):
-            ydl_opts['cookiefile'] = cookies_path
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(url, download=False)
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True
+        }
+        
+        # Yerel modda Chrome çerezlerini kullan
+        if IS_LOCAL:
+            ydl_opts['cookies_from_browser'] = 'chrome'
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            return ydl.extract_info(url, download=False)
+    except Exception as e:
+        if not IS_LOCAL and 'Sign in to confirm' in str(e):
+            raise Exception('Bu video için giriş yapmanız gerekiyor. Uygulamayı yerel olarak kullanarak tüm videoları indirebilirsiniz.')
+        raise e
 
 def progress_hook(d):
     if d['status'] == 'downloading':
@@ -83,7 +86,7 @@ def setup_ffmpeg():
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html', is_local=IS_LOCAL)
 
 @app.route('/get-formats', methods=['POST'])
 def get_video_formats():
@@ -160,7 +163,8 @@ def get_video_formats():
             'formats': formats,
             'thumbnail': info.get('thumbnail', ''),
             'duration': info.get('duration', 0),
-            'description': info.get('description', '')
+            'description': info.get('description', ''),
+            'is_local': IS_LOCAL
         })
         
     except Exception as e:
@@ -239,14 +243,9 @@ def download_video():
             'buffersize': 1024 * 1024
         }
         
-        # Eğer yerel ortamdaysak (Windows) tarayıcı çerezlerini kullan
-        if os.name == 'nt':
+        # Yerel modda Chrome çerezlerini kullan
+        if IS_LOCAL:
             ydl_opts['cookies_from_browser'] = 'chrome'
-        else:
-            # Render sunucusunda cookies.txt dosyasını kullan
-            cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
-            if os.path.exists(cookies_path):
-                ydl_opts['cookiefile'] = cookies_path
         
         if download_type == 'audio':
             ydl_opts.update({
@@ -274,7 +273,7 @@ def download_video():
             })
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = get_video_info(url)
+            info = get_video_info(url)  # Önce video bilgilerini kontrol et
             video_title = info.get('title', 'Video')
             ydl.download([url])
             
@@ -285,7 +284,8 @@ def download_video():
                 'success': True,
                 'message': f'{"Ses" if download_type == "audio" else "Video"} başarıyla indirildi!',
                 'filename': filename,
-                'title': video_title
+                'title': video_title,
+                'is_local': IS_LOCAL
             })
             
     except Exception as e:
