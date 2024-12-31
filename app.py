@@ -19,11 +19,17 @@ socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 IS_LOCAL = os.name == 'nt'  # Windows'ta çalışıyorsa yerel moddur
 
 # YouTube API anahtarı
-YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
+YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')  # API anahtarı çevre değişkeninden alınacak
 
 # YouTube API servisi
 def get_youtube_service():
-    return build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+    try:
+        if not YOUTUBE_API_KEY:
+            raise Exception("YouTube API anahtarı bulunamadı. Lütfen çevre değişkenlerini kontrol edin.")
+        return build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+    except Exception as e:
+        print(f"YouTube API servis hatası: {str(e)}")
+        raise Exception("YouTube API bağlantısı kurulamadı. Lütfen API anahtarını kontrol edin.")
 
 # Video ID'sini URL'den ayıkla
 def extract_video_id(url):
