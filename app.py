@@ -9,6 +9,8 @@ import subprocess
 import json
 from pathlib import Path
 from functools import lru_cache
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
@@ -16,33 +18,77 @@ socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 # Uygulama modunu belirle
 IS_LOCAL = os.name == 'nt'  # Windows'ta çalışıyorsa yerel moddur
 
-# Video bilgilerini önbelleğe alma
-@lru_cache(maxsize=100)
-def get_video_info(url):
+# YouTube API anahtarı
+YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
+
+# YouTube API servisi
+def get_youtube_service():
+    return build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+
+# Video ID'sini URL'den ayıkla
+def extract_video_id(url):
+    if 'youtu.be' in url:
+        return url.split('/')[-1].split('?')[0]
+    elif 'youtube.com' in url:
+        if 'v=' in url:
+            return url.split('v=')[1].split('&')[0]
+    return url
+
+# Video bilgilerini YouTube API ile al
+def get_video_info_from_api(url):
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'extract_flat': True,  # Sadece video bilgilerini al
-            'no_playlist': True,   # Oynatma listelerini devre dışı bırak
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
-                'Sec-Fetch-Mode': 'navigate'
-            }
+        video_id = extract_video_id(url)
+        youtube = get_youtube_service()
+        
+        # Video detaylarını al
+        video_response = youtube.videos().list(
+            part='snippet,contentDetails,statistics',
+            id=video_id
+        ).execute()
+
+        if not video_response['items']:
+            raise Exception('Video bulunamadı')
+
+        video = video_response['items'][0]
+        snippet = video['snippet']
+        content_details = video['contentDetails']
+
+        # Video süresini saniyeye çevir
+        duration = content_details['duration']
+        duration_sec = sum(x * int(t) for x, t in zip([3600, 60, 1], 
+            str(duration).replace('PT','').replace('H',':').replace('M',':').replace('S','').split(':')))
+
+        formats = []
+        # Video formatları
+        video_formats = [
+            {'format_id': 'hd1080', 'quality': '1080p', 'height': 1080},
+            {'format_id': 'hd720', 'quality': '720p', 'height': 720},
+            {'format_id': 'large', 'quality': '480p', 'height': 480},
+            {'format_id': 'medium', 'quality': '360p', 'height': 360}
+        ]
+        
+        # Ses formatları
+        audio_formats = [
+            {'format_id': 'highaudio', 'quality': '192', 'abr': 192},
+            {'format_id': 'mediumaudio', 'quality': '128', 'abr': 128},
+            {'format_id': 'lowaudio', 'quality': '96', 'abr': 96}
+        ]
+
+        return {
+            'id': video_id,
+            'title': snippet['title'],
+            'description': snippet['description'],
+            'thumbnail': snippet['thumbnails']['high']['url'],
+            'duration': duration_sec,
+            'video_formats': video_formats,
+            'audio_formats': audio_formats
         }
-        
-        # Yerel modda Chrome çerezlerini kullan
-        if IS_LOCAL:
-            ydl_opts['cookies_from_browser'] = 'chrome'
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(url, download=False)
+
+    except HttpError as e:
+        print(f'YouTube API Hatası: {e}')
+        raise Exception(f'YouTube API Hatası: {str(e)}')
     except Exception as e:
-        if not IS_LOCAL and 'Sign in to confirm' in str(e):
-            raise Exception('Bu video için giriş yapmanız gerekiyor. Uygulamayı yerel olarak kullanarak tüm videoları indirebilirsiniz.')
+        print(f'Hata: {e}')
         raise e
 
 def progress_hook(d):
@@ -109,70 +155,33 @@ def get_video_formats():
                 'message': 'URL boş olamaz!'
             }), 400
         
-        info = get_video_info(url)
+        info = get_video_info_from_api(url)
         formats = []
-        seen_qualities = set()
         
         if download_type == 'audio':
-            audio_formats = [f for f in info['formats'] if 
-                           f.get('acodec', 'none') != 'none' and 
-                           f.get('vcodec', 'none') == 'none']
-            
-            for f in audio_formats:
-                abr = f.get('abr', 0)
-                if abr > 0:
-                    quality = f'{abr}'
-                    if quality not in seen_qualities:
-                        formats.append({
-                            'format_id': f['format_id'],
-                            'quality': quality,
-                            'ext': 'mp3',
-                            'filesize': f.get('filesize', 0),
-                            'abr': abr
-                        })
-                        seen_qualities.add(quality)
-            
-            formats.sort(key=lambda x: x.get('abr', 0), reverse=True)
-            
+            for f in info['audio_formats']:
+                formats.append({
+                    'format_id': f['format_id'],
+                    'quality': f'{f["quality"]} kbps',
+                    'ext': 'mp3',
+                    'abr': f['abr']
+                })
         else:
-            for f in info['formats']:
-                if f.get('vcodec', 'none') != 'none' and f.get('ext', '') == 'mp4':
-                    height = f.get('height', 0)
-                    quality = f'{height}p' if height else f.get('format_note', 'unknown')
-                    
-                    if f.get('acodec') == 'none':
-                        audio_formats = [af for af in info['formats'] if 
-                                      af.get('vcodec') == 'none' and 
-                                      af.get('acodec') != 'none']
-                        if audio_formats:
-                            best_audio = max(audio_formats, 
-                                          key=lambda x: x.get('abr', 0) or 0)
-                            format_id = f'{f["format_id"]}+{best_audio["format_id"]}'
-                        else:
-                            continue
-                    else:
-                        format_id = f['format_id']
-                    
-                    if quality not in seen_qualities and height >= 360:
-                        formats.append({
-                            'format_id': format_id,
-                            'quality': quality,
-                            'ext': f['ext'],
-                            'filesize': f.get('filesize', 0),
-                            'format_note': f.get('format_note', ''),
-                            'height': height
-                        })
-                        seen_qualities.add(quality)
-            
-            formats.sort(key=lambda x: x.get('height', 0), reverse=True)
+            for f in info['video_formats']:
+                formats.append({
+                    'format_id': f['format_id'],
+                    'quality': f['quality'],
+                    'ext': 'mp4',
+                    'height': f['height']
+                })
         
         return jsonify({
             'success': True,
             'title': info['title'],
             'formats': formats,
-            'thumbnail': info.get('thumbnail', ''),
-            'duration': info.get('duration', 0),
-            'description': info.get('description', ''),
+            'thumbnail': info['thumbnail'],
+            'duration': info['duration'],
+            'description': info['description'],
             'is_local': IS_LOCAL
         })
         
@@ -290,7 +299,7 @@ def download_video():
             })
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = get_video_info(url)  # Önce video bilgilerini kontrol et
+            info = get_video_info_from_api(url)  # Önce video bilgilerini kontrol et
             video_title = info.get('title', 'Video')
             ydl.download([url])
             
