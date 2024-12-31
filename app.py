@@ -19,8 +19,13 @@ def get_video_info(url):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'cookies_from_browser': 'chrome'  # Chrome tarayıcısından çerezleri kullan
+        'cookiesfrombrowser': None  # Tarayıcı çerezlerini devre dışı bırak
     }
+    
+    # Eğer yerel ortamdaysak (Windows) tarayıcı çerezlerini kullan
+    if os.name == 'nt':
+        ydl_opts['cookies_from_browser'] = 'chrome'
+    
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(url, download=False)
 
@@ -224,12 +229,16 @@ def download_video():
             'no_warnings': True,
             'ffmpeg_location': ffmpeg_path,
             'progress_hooks': [progress_hook],
-            'concurrent_fragments': 3,  # Paralel indirme
-            'retries': 10,  # Hata durumunda yeniden deneme sayısı
+            'concurrent_fragments': 3,
+            'retries': 10,
             'fragment_retries': 10,
-            'buffersize': 1024 * 1024,  # Buffer boyutunu artır
-            'cookies_from_browser': 'chrome'  # Chrome tarayıcısından çerezleri kullan
+            'buffersize': 1024 * 1024,
+            'cookiesfrombrowser': None  # Tarayıcı çerezlerini devre dışı bırak
         }
+        
+        # Eğer yerel ortamdaysak (Windows) tarayıcı çerezlerini kullan
+        if os.name == 'nt':
+            ydl_opts['cookies_from_browser'] = 'chrome'
         
         if download_type == 'audio':
             ydl_opts.update({
