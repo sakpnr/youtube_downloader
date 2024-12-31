@@ -11,12 +11,17 @@ from pathlib import Path
 from functools import lru_cache
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import threading
 
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", logger=True, engineio_logger=True)
 
 # Uygulama modunu belirle
 IS_LOCAL = os.name == 'nt'  # Windows'ta çalışıyorsa yerel moddur
+
+# İlerleme takibi için global değişken
+download_progress = 0
+progress_lock = threading.Lock()
 
 # YouTube API anahtarı
 YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')  # API anahtarı çevre değişkeninden alınacak
@@ -111,6 +116,7 @@ def get_video_info_from_api(url):
         raise e
 
 def progress_hook(d):
+    global download_progress
     if d['status'] == 'downloading':
         try:
             downloaded = d.get('downloaded_bytes', 0)
@@ -120,13 +126,28 @@ def progress_hook(d):
                 total = d.get('total_bytes_estimate', 0)
             
             if total > 0:
-                percentage = (downloaded / total) * 100
-                socketio.emit('download_progress', {'percentage': round(percentage, 1)})
+                with progress_lock:
+                    download_progress = (downloaded / total) * 100
+                    socketio.emit('download_progress', {
+                        'percentage': round(download_progress, 1)
+                    }, namespace='/')
             else:
                 downloaded_mb = downloaded / (1024 * 1024)
-                socketio.emit('download_progress', {'percentage': -1, 'downloaded': round(downloaded_mb, 1)})
+                with progress_lock:
+                    socketio.emit('download_progress', {
+                        'percentage': -1,
+                        'downloaded': round(downloaded_mb, 1)
+                    }, namespace='/')
         except Exception as e:
             print(f"İlerleme güncellemesi hatası: {str(e)}")
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
 def setup_ffmpeg():
     ffmpeg_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ffmpeg')
