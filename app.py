@@ -253,9 +253,28 @@ def download_video():
         
         if not os.path.exists(download_path):
             os.makedirs(download_path)
+
+        # Video bilgilerini API'den al
+        info = get_video_info_from_api(url)
+        video_title = info.get('title', 'Video')
+        
+        # yt-dlp formatlarını ayarla
+        if download_type == 'audio':
+            format_spec = 'bestaudio/best'
+        else:
+            if format_id == 'hd1080':
+                format_spec = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
+            elif format_id == 'hd720':
+                format_spec = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+            elif format_id == 'large':
+                format_spec = 'bestvideo[height<=480]+bestaudio/best[height<=480]/best'
+            elif format_id == 'medium':
+                format_spec = 'bestvideo[height<=360]+bestaudio/best[height<=360]/best'
+            else:
+                format_spec = 'best'
         
         ydl_opts = {
-            'format': format_id,
+            'format': format_spec,
             'outtmpl': os.path.join(download_path, '%(title)s.%(ext)s'),
             'quiet': True,
             'no_warnings': True,
@@ -305,8 +324,6 @@ def download_video():
             })
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = get_video_info_from_api(url)  # Önce video bilgilerini kontrol et
-            video_title = info.get('title', 'Video')
             ydl.download([url])
             
             ext = 'mp3' if download_type == 'audio' else 'mp4'
