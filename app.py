@@ -11,7 +11,7 @@ from pathlib import Path
 from functools import lru_cache
 
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode='threading')
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
 # Video bilgilerini önbelleğe alma
 @lru_cache(maxsize=100)
