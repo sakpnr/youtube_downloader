@@ -69,7 +69,7 @@ def get_video_info_from_api(url):
         
         # Video detaylarını al
         video_response = youtube.videos().list(
-            part='snippet,contentDetails,statistics',
+            part='snippet,contentDetails,statistics,fileDetails',
             id=video_id
         ).execute()
 
@@ -83,19 +83,74 @@ def get_video_info_from_api(url):
         # Video süresini saniyeye çevir
         duration_sec = parse_duration(content_details['duration'])
 
+        # Yaklaşık dosya boyutlarını hesapla (bitrate'e göre)
+        def calculate_size(height, duration):
+            if height == 1080:
+                bitrate = 8000  # ~8 Mbps for 1080p
+            elif height == 720:
+                bitrate = 5000  # ~5 Mbps for 720p
+            elif height == 480:
+                bitrate = 2500  # ~2.5 Mbps for 480p
+            else:
+                bitrate = 1500  # ~1.5 Mbps for 360p
+            
+            # Boyut = Bitrate * Süre / 8 (byte'a çevirmek için)
+            size_mb = (bitrate * 1024 * duration) / (8 * 1024 * 1024)
+            return round(size_mb, 1)
+
         # Video formatları
         video_formats = [
-            {'format_id': 'hd1080', 'quality': '1080p', 'height': 1080},
-            {'format_id': 'hd720', 'quality': '720p', 'height': 720},
-            {'format_id': 'large', 'quality': '480p', 'height': 480},
-            {'format_id': 'medium', 'quality': '360p', 'height': 360}
+            {
+                'format_id': 'hd1080',
+                'quality': '1080p',
+                'height': 1080,
+                'filesize': calculate_size(1080, duration_sec)
+            },
+            {
+                'format_id': 'hd720',
+                'quality': '720p',
+                'height': 720,
+                'filesize': calculate_size(720, duration_sec)
+            },
+            {
+                'format_id': 'large',
+                'quality': '480p',
+                'height': 480,
+                'filesize': calculate_size(480, duration_sec)
+            },
+            {
+                'format_id': 'medium',
+                'quality': '360p',
+                'height': 360,
+                'filesize': calculate_size(360, duration_sec)
+            }
         ]
         
-        # Ses formatları
+        # Ses formatları ve boyutları
+        def calculate_audio_size(bitrate, duration):
+            # Boyut = Bitrate * Süre / 8 (byte'a çevirmek için)
+            size_mb = (bitrate * 1024 * duration) / (8 * 1024 * 1024)
+            return round(size_mb, 1)
+
         audio_formats = [
-            {'format_id': 'highaudio', 'quality': '192', 'abr': 192},
-            {'format_id': 'mediumaudio', 'quality': '128', 'abr': 128},
-            {'format_id': 'lowaudio', 'quality': '96', 'abr': 96}
+            {
+                'format_id': 'highaudio',
+                'quality': '192',
+                'abr': 192,
+                'filesize': calculate_audio_size(192, duration_sec)
+            },
+            {
+                'format_id': 'mediumaudio',
+                'quality': '128',
+                'abr': 128,
+                'filesize': calculate_audio_size(128, duration_sec)
+            },
+            {
+                'format_id': 'lowaudio',
+                'quality': '96',
+                'abr': 96,
+                'filesize': calculate_audio_size(96, duration_sec)
+            }
         ]
 
         return {
